@@ -1,0 +1,5 @@
+# Master Server Setting
+node-ip: ${K3S_MASTER_IP}
+write-kubeconfig-mode: "644"
+token: ${K3S_TOKEN}
+https-listen-port: ${K3S_PORT}
