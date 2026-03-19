@@ -1,0 +1,4 @@
+# Worker Node 설정
+server: "https://$K3S_MASTER_IP:$K3S_PORT"
+node-ip: "$K3S_WORKER_IP"
+token: "$K3S_TOKEN"
