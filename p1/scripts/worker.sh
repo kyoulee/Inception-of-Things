@@ -16,6 +16,12 @@ fi
 
 # k3s confing
 
+if systemctl is-active --quiet k3s-agent; then
+    echo "K3s agent is already running. Skipping installation."
+    systemctl status k3s-agent | grep -E 'Active:|Loaded:|Main PID:'
+    exit 0
+fi
+
 WORKER_CONFIG_SRC="/vagrant/config.yaml"
 WORKER_CONFIG_DEST="/etc/rancher/k3s/config.yaml"
 
@@ -59,6 +65,29 @@ done
 echo "🚀 Master Server is up! Proceeding with installation..."
 
 # install & start k3s 
+
+
+# Loop until the file exists or the maximum retries are reached
+MAX_RETRIES=60
+RETRY_COUNT=0
+WAIT_SECONDS=3
+TOKEN_FILE="/token/node-token"
+
+echo "Waiting for Master's k3s token..."
+
+while [ ! -f "$TOKEN_FILE" ]; do
+    echo "  (Attempt $RETRY_COUNT/$MAX_RETRIES): token not ready yet. Retrying in 2s..."
+    if [ "$RETRY_COUNT" -ge "$MAX_RETRIES" ]; then
+        echo "❌ Timeout reached: Master's token not found. Exiting..."
+        exit 1
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    sleep $WAIT_SECONDS
+done
+
+export K3S_TOKEN=$(cat /token/node-token)
+
+echo "Master's public token registered successfully."
 
 echo "Setting up K3s Worker with IP: $K3S_WORKER_IP"
 curl -sfL https://get.k3s.io | sh -s - agent
