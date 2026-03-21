@@ -3,6 +3,7 @@
 
 require 'fileutils'
 
+host_token_path = "/tmp/vagrant/token"
 host_ssh_path = "/tmp/vagrant/v_ssh"
 vagrant_ssh_path = "/v_ssh"
 
@@ -11,6 +12,12 @@ unless File.directory?(host_ssh_path)
   puts "[Host] Creating shared directory: #{host_ssh_path}"
   FileUtils.mkdir_p(host_ssh_path)
   FileUtils.chmod_R(0777, host_ssh_path)
+end
+
+unless File.directory?(host_token_path)
+  puts "[Host] Creating shared directory: #{host_token_path}"
+  FileUtils.mkdir_p(host_token_path)
+  FileUtils.chmod_R(0777, host_token_path)
 end
 
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
@@ -92,6 +99,7 @@ Vagrant.configure("2") do |config|
     sv.vm.provision "shell", run: "always", inline: "mkdir -p /vagrant /vagrant/confs && chown -R vagrant:vagrant /vagrant"
     sv.vm.provision "file", source: "./confs/vagrant.env", destination: "/vagrant/.env"
     sv.vm.provision "file", source: "./confs/server/config.yaml", destination: "/vagrant/config.yaml"
+    sv.vm.synced_folder host_token_path, "/token", type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
     sv.vm.synced_folder host_ssh_path, vagrant_ssh_path, type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
     sv.vm.provision "shell", path: "scripts/server.sh"
     sv.vm.provision "shell", path: "scripts/ssh-server.sh"
@@ -109,6 +117,7 @@ Vagrant.configure("2") do |config|
     svw.vm.provision "shell", run: "always", inline: "mkdir -p /vagrant /vagrant/confs && chown -R vagrant:vagrant /vagrant"
     svw.vm.provision "file", source: "./confs/vagrant.env", destination: "/vagrant/.env"
     svw.vm.provision "file", source: "./confs/worker/config.yaml", destination: "/vagrant/config.yaml"
+    svw.vm.synced_folder host_token_path, "/token", type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
     svw.vm.synced_folder host_ssh_path, vagrant_ssh_path, type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
     svw.vm.provision "shell", path: "scripts/worker.sh"
     svw.vm.provision "shell", path: "scripts/ssh-worker.sh"
@@ -128,6 +137,10 @@ Vagrant.configure("2") do |config|
         if Dir.exist?(host_ssh_path)
           FileUtils.rm_rf(host_ssh_path)
           puts "All VMs are gone. Removed #{host_ssh_path}."
+        end
+        if Dir.exist?(host_token_path)
+          FileUtils.rm_rf(host_token_path)
+          puts "All VMs are gone. Removed #{host_token_path}."
         end
       end
     end

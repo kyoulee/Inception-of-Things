@@ -16,6 +16,12 @@ fi
 
 # k3s config
 
+if systemctl is-active --quiet k3s; then
+    echo "K3s server is already running. Skipping installation."
+    systemctl status k3s | grep -E "Active:|Loaded:|Main PID: "
+    exit 0
+fi
+
 SERVER_CONFIG_SRC="/vagrant/config.yaml"
 SERVER_CONFIG_DEST="/etc/rancher/k3s/config.yaml"
 
@@ -36,6 +42,8 @@ fi
 
 echo "Setting up K3s Master with IP: $K3S_MASTER_IP"
 curl -sfL https://get.k3s.io | sh -
+cp /var/lib/rancher/k3s/server/node-token /token/node-token
+echo "Generating Server Token..."
 echo "K3s is up!"
 
 # status log
