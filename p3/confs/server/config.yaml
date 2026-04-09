@@ -1,0 +1,6 @@
+# Master Server Setting
+node-ip: ${K3S_SERVER_IP}
+node-name: kyoulee-server
+write-kubeconfig-mode: "644"
+# token: ${K3S_TOKEN}
+https-listen-port: ${K3S_PORT}
