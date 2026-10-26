@@ -14,12 +14,16 @@ else
     exit 1
 fi
 
-echo "network root change to google" 
-echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
-echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+# The box runs systemd-resolved with DNSSEC=yes, which rejects answers from
+# upstream servers without DNSSEC support. Writing /etc/resolv.conf does not
+# stick (it is a symlink that resolved rewrites).
+echo "network root change to google"
+mkdir -p /etc/systemd/resolved.conf.d
+printf "[Resolve]\nDNS=8.8.8.8 8.8.4.4\nDNSSEC=no\n" > /etc/systemd/resolved.conf.d/dns.conf
+systemctl restart systemd-resolved
 
-echo "apt install packages" 
-sudo apt-get install curl
+echo "apt install packages"
+apt-get install -y curl
 
 
 # k3s confing
