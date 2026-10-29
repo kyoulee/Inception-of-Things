@@ -154,7 +154,6 @@ Vagrant.configure("2") do |config|
       lv.qemu_use_session = false
       lv.cpus = 1
       lv.memory = 512
-      lv.cpu_mode = "host-passthrough"
     end
     sv.vm.provision "shell", run: "always", inline: "mkdir -p /vagrant /vagrant/confs && chown -R vagrant:vagrant /vagrant"
     sv.vm.provision "file", source: "./confs/vagrant.env", destination: "/vagrant/.env"
@@ -179,7 +178,6 @@ Vagrant.configure("2") do |config|
       lv.qemu_use_session = false
       lv.cpus = 1
       lv.memory = 512
-      lv.cpu_mode = "host-passthrough"
     end
     svw.vm.provision "shell", run: "always", inline: "mkdir -p /vagrant /vagrant/confs && chown -R vagrant:vagrant /vagrant"
     svw.vm.provision "file", source: "./confs/vagrant.env", destination: "/vagrant/.env"

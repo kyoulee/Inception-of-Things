@@ -14,6 +14,13 @@ else
     exit 1
 fi
 
+echo "network root change to google" 
+echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+
+echo "apt install packages" 
+sudo apt-get install curl
+
 # k3s config
 
 if systemctl is-active --quiet k3s; then
