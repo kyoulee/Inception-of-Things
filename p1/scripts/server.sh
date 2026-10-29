@@ -14,6 +14,17 @@ else
     exit 1
 fi
 
+# The box runs systemd-resolved with DNSSEC=yes, which rejects answers from
+# upstream servers without DNSSEC support. Writing /etc/resolv.conf does not
+# stick (it is a symlink that resolved rewrites).
+echo "network root change to google"
+mkdir -p /etc/systemd/resolved.conf.d
+printf "[Resolve]\nDNS=8.8.8.8 8.8.4.4\nDNSSEC=no\n" > /etc/systemd/resolved.conf.d/dns.conf
+systemctl restart systemd-resolved
+
+echo "apt install packages"
+apt-get install -y curl
+
 # k3s config
 
 if systemctl is-active --quiet k3s; then
