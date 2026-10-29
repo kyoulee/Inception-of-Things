@@ -6,19 +6,73 @@ require 'fileutils'
 host_token_path = "/tmp/vagrant/token"
 host_ssh_path = "/tmp/vagrant/v_ssh"
 vagrant_ssh_path = "/v_ssh"
+shared_dirs = [host_ssh_path, host_token_path]
 
-# Create sharing folder 
-unless File.directory?(host_ssh_path)
-  puts "[Host] Creating shared directory: #{host_ssh_path}"
-  FileUtils.mkdir_p(host_ssh_path)
-  FileUtils.chmod_R(0777, host_ssh_path)
+def ensure_shared_dirs(dirs)
+  dirs.each do |dir|
+    unless File.directory?(dir)
+      puts "[Host] Creating shared directory: #{dir}"
+      FileUtils.mkdir_p(dir)
+      FileUtils.chmod_R(0777, dir)
+    end
+  end
 end
 
-unless File.directory?(host_token_path)
-  puts "[Host] Creating shared directory: #{host_token_path}"
-  FileUtils.mkdir_p(host_token_path)
-  FileUtils.chmod_R(0777, host_token_path)
+def remove_shared_dirs(dirs)
+  dirs.each do |dir|
+    if Dir.exist?(dir)
+        FileUtils.rm_rf(dir)
+        puts "All VMs are gone. Removed #{dir}."
+    end
+  end
 end
+
+# Network Setting
+iot_net_name = "iot-net"
+iot_net_xml = File.expand_path("scripts/iot-net.xml", __dir__)
+libvirt_uri = "qemu:///system"
+
+def ensure_libvirt_network(net_name, xml_path, uri)
+  unless File.exist?(xml_path)
+    raise Vagrant::Errors::VagrantError.new,
+          "[Error] Network XML file not found: #{xml_path}\n" \
+          "Please verify that 'scripts/iot-net.xml' exists."
+  end
+
+  defined_nets = `virsh -c #{uri} net-list --all --name`.split.map(&:strip)
+  unless defined_nets.include?(net_name)
+    puts "[Host] Defining libvirt network '#{net_name}' from #{xml_path}..."
+    unless system("virsh -c #{uri} net-define #{xml_path}")
+      raise Vagrant::Errors::VagrantError.new, "[Error] Failed to define network '#{net_name}'."
+    end
+  end
+
+  active_nets = `virsh -c #{uri} net-list --name`.split.map(&:strip)
+  unless active_nets.include?(net_name)
+    puts "[Host] Starting libvirt network '#{net_name}'..."
+    unless system("virsh -c #{uri} net-start #{net_name}")
+      raise Vagrant::Errors::VagrantError.new, "[Error] Failed to start network '#{net_name}'."
+    end
+    system("virsh -c #{uri} net-autostart #{net_name}")
+  else
+    puts "[Host] libvirt network '#{net_name}' is already active."
+  end
+end
+
+def remove_libvirt_network(net_name, uri)
+  active_nets = `virsh -c #{uri} net-list --name`.split.map(&:strip)
+  if active_nets.include?(net_name)
+    puts "[Host] Destroying active libvirt network '#{net_name}'..."
+    system("virsh -c #{uri} net-destroy #{net_name}")
+  end
+
+  defined_nets = `virsh -c #{uri} net-list --all --name`.split.map(&:strip)
+  if defined_nets.include?(net_name)
+    puts "[Host] Undefining libvirt network '#{net_name}'..."
+    system("virsh -c #{uri} net-undefine #{net_name}")
+  end
+end
+
 
 # All Vagrant configuration is done below. The "2" in Vagrant.configure
 # configures the configuration version (we support older styles for
@@ -90,10 +144,16 @@ Vagrant.configure("2") do |config|
   config.vm.define "Server" do |sv|
     sv.vm.hostname = "Server"
     sv.vm.box = "generic/ubuntu2004"
-    sv.vm.network "private_network", ip: "192.168.56.110"
+    sv.vm.network "private_network", 
+      ip: "192.168.56.110",
+      libvirt__network_name: "#{iot_net_name}",
+      libvirt__netmask: "255.255.255.0",
+      libvirt__dhcp_enabled: false
     sv.vm.provider :libvirt do |lv|
+      lv.uri = "#{libvirt_uri}"
+      lv.qemu_use_session = false
       lv.cpus = 1
-      lv.memory = 512
+      lv.memory = 1024
       lv.cpu_mode = "host-passthrough"
     end
     sv.vm.provision "shell", run: "always", inline: "mkdir -p /vagrant /vagrant/confs && chown -R vagrant:vagrant /vagrant"
@@ -101,6 +161,7 @@ Vagrant.configure("2") do |config|
     sv.vm.provision "file", source: "./confs/server/config.yaml", destination: "/vagrant/config.yaml"
     sv.vm.synced_folder host_token_path, "/token", type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
     sv.vm.synced_folder host_ssh_path, vagrant_ssh_path, type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
+    sv.vm.provision "shell", path: "scripts/network-setting.sh"
     sv.vm.provision "shell", path: "scripts/server.sh"
     sv.vm.provision "shell", path: "scripts/ssh-server.sh"
   end
@@ -108,10 +169,16 @@ Vagrant.configure("2") do |config|
   config.vm.define "ServerWorker" do |svw|
     svw.vm.hostname = "ServerWorker"
     svw.vm.box = "generic/ubuntu2004"
-    svw.vm.network "private_network", ip: "192.168.56.111"
+    svw.vm.network "private_network", 
+      ip: "192.168.56.111",
+      libvirt__network_name: "#{iot_net_name}",
+      libvirt__netmask: "255.255.255.0",
+      libvirt__dhcp_enabled: false
     svw.vm.provider :libvirt do |lv|
+      lv.uri = "#{libvirt_uri}"
+      lv.qemu_use_session = false
       lv.cpus = 1
-      lv.memory = 512
+      lv.memory = 1024
       lv.cpu_mode = "host-passthrough"
     end
     svw.vm.provision "shell", run: "always", inline: "mkdir -p /vagrant /vagrant/confs && chown -R vagrant:vagrant /vagrant"
@@ -119,6 +186,7 @@ Vagrant.configure("2") do |config|
     svw.vm.provision "file", source: "./confs/worker/config.yaml", destination: "/vagrant/config.yaml"
     svw.vm.synced_folder host_token_path, "/token", type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
     svw.vm.synced_folder host_ssh_path, vagrant_ssh_path, type: "9p", accessmode: "mapped", mount_options: ["version=9p2000.L", "trans=virtio", "access=any"]
+    svw.vm.provision "shell", path: "scripts/network-setting.sh"
     svw.vm.provision "shell", path: "scripts/worker.sh"
     svw.vm.provision "shell", path: "scripts/ssh-worker.sh"
   end 
@@ -131,17 +199,19 @@ Vagrant.configure("2") do |config|
   #   apt-get install -y apache2
   # SHELL
   
+  config.trigger.before :up do |trigger|
+    trigger.ruby do |env, machine|
+      if machine.name == :Server
+        ensure_shared_dirs(shared_dirs)
+        ensure_libvirt_network(iot_net_name, iot_net_xml, libvirt_uri)
+      end
+    end
+  end
   config.trigger.after :destroy do |trigger|
     trigger.ruby do |env, machine|
       if machine.name == :Server
-        if Dir.exist?(host_ssh_path)
-          FileUtils.rm_rf(host_ssh_path)
-          puts "All VMs are gone. Removed #{host_ssh_path}."
-        end
-        if Dir.exist?(host_token_path)
-          FileUtils.rm_rf(host_token_path)
-          puts "All VMs are gone. Removed #{host_token_path}."
-        end
+        remove_shared_dirs(shared_dirs)
+        remove_libvirt_network(iot_net_name, libvirt_uri)
       end
     end
   end

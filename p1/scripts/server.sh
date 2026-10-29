@@ -41,7 +41,10 @@ fi
 # install & start k3s 
 
 echo "Setting up K3s Master with IP: $K3S_MASTER_IP"
-curl -sfL https://get.k3s.io | sh -
+if ! curl -sfL https://get.k3s.io | sh -; then
+    echo "[Error] K3s installation failed!" >&2
+    exit 1
+fi
 cp /var/lib/rancher/k3s/server/node-token /token/node-token
 echo "Generating Server Token..."
 echo "K3s is up!"

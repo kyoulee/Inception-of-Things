@@ -90,7 +90,11 @@ export K3S_TOKEN=$(cat /token/node-token)
 echo "Master's public token registered successfully."
 
 echo "Setting up K3s Worker with IP: $K3S_WORKER_IP"
-curl -sfL https://get.k3s.io | sh -s - agent
+if ! curl -sfL https://get.k3s.io | sh -s - agent; then
+    echo "[Error] K3s installation failed!" >&2
+    exit 1
+fi
+
 echo "K3s Server is up! Installing Agent..."
 
 # status log
