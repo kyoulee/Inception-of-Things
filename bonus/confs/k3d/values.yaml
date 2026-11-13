@@ -1,0 +1,31 @@
+global:
+  hosts:
+    domain: 127.0.0.1.nip.io
+    externalIP: 127.0.0.1
+    https: true
+    externalPort: 8443
+  ingress:
+    configureCertmanager: false
+  edition: ce
+  gatewayApi:
+    enabled: false
+    installEnvoy: false
+
+cert-manager:
+  installCRDs: true
+
+certmanager-issuer:
+  email: test-email@example.com
+
+prometheus:
+  install: false
+
+postgresql:
+  metrics:
+    enabled: false
+
+redis:
+  metrics:
+    enabled: false
+gitlab-runner:
+  install: false
