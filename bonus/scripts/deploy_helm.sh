@@ -105,7 +105,7 @@ else
 fi
 
 log_info "Launching event monitoring popup window..."
-xterm -title "GitLab Events" -e "docker exec -it k3d-gitlab-cluster-server-0 kubectl get events -n gitlab -w" &
+xterm -title "GitLab Events" -e "docker exec -it ${CLUSTER_NODE} kubectl get events -n gitlab -w" &
 POPUP_PID=$!
 
 sleep 1
