@@ -37,6 +37,13 @@ if [[ ! -f "${K3D_CONFIG}" ]]; then
   exit 1
 fi
 
+mapfile -t REQUIRED_LB_PORTS < <(
+  grep -E '^[[:space:]]*-[[:space:]]*port:' "${K3D_CONFIG}" \
+    | awk '{print $NF}' \
+    | tr -d "\"'"
+)
+readonly REQUIRED_LB_PORTS
+
 readonly CLUSTER_NAME=$(grep -E '^\s*name:' "${K3D_CONFIG}" | head -n 1 | awk '{print $2}' | tr -d '""'"''")
 if [[ -z "${CLUSTER_NAME}" ]]; then
   log_error "Failed to parse the cluster name from the configuration file."
@@ -44,9 +51,33 @@ if [[ -z "${CLUSTER_NAME}" ]]; then
 fi
 log_info "Target cluster name: ${CLUSTER_NAME}"
 
+readonly CLUSTER_NODE="k3d-${CLUSTER_NAME}-serverlb"
+
 log_info "Preparing to create k3d cluster..."
 if k3d cluster list "${CLUSTER_NAME}" >/dev/null 2>&1; then
-  log_info "k3d cluster '${CLUSTER_NAME}' already exists. (Skipping creation)"
+  log_info "k3d cluster '${CLUSTER_NAME}' already exists. Checking loadbalancer ports..."
+
+  current_ports="$(docker ps --filter "name=^/${CLUSTER_NODE}$" --format "{{.Ports}}")"
+  port_add_args=()
+
+  for mapping in "${REQUIRED_LB_PORTS[@]}"; do
+    host_port="${mapping%%:*}"
+    container_port="${mapping##*:}"
+    if ! echo "${current_ports}" | grep -q "0.0.0.0:${host_port}->${container_port}/tcp"; then
+      port_add_args+=("--port-add" "${mapping}@loadbalancer")
+    fi
+  done
+  if (( ${#port_add_args[@]} > 0 )); then
+    log_info "State modification: Updating k3d cluster '${CLUSTER_NAME}' (${port_add_args[*]})..."
+    if k3d cluster edit "${CLUSTER_NAME}" "${port_add_args[@]}"; then
+      log_info "k3d cluster '${CLUSTER_NAME}' ports updated successfully. (Health Check PASS)"
+    else
+      log_error "Failed to update ports for k3d cluster '${CLUSTER_NAME}'."
+      exit 1
+    fi
+  else
+    log_info "All required loadbalancer ports (${REQUIRED_LB_PORTS[*]}) are already mapped. (Skip)"
+  fi
 else
   log_info "Creating k3d cluster '${CLUSTER_NAME}'..."
   k3d cluster create --config="${K3D_CONFIG}"

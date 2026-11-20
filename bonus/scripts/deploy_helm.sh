@@ -105,7 +105,7 @@ else
 fi
 
 log_info "Launching event monitoring popup window..."
-xterm -title "GitLab Events" -e "docker exec -it k3d-gitlab-cluster-server-0 kubectl get events -n gitlab -w" &
+xterm -title "GitLab Events" -e "docker exec -it ${CLUSTER_NODE} kubectl get events -n gitlab -w" &
 POPUP_PID=$!
 
 sleep 1
@@ -114,7 +114,7 @@ log_info "Deploying GitLab with 20m timeout (Silent wait)..."
 
 log_info "Checking GitLab release status..."
 if helm status "${RELEASE_NAME}" -n "${NAMESPACE}" >/dev/null 2>&1; then
-  log_info "GitLab release ('${RELEASE_NAME}') is already deployed. (Skipping installation)"
+  log_info "GitLab release ('${RELEASE_NAME}') is already deployed. (upgrade helm)"
   helm upgrade "${RELEASE_NAME}" "${CHART_NAME}" \
     --version "${CHART_VERSION}" \
     --namespace "${NAMESPACE}" \

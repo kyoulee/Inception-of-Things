@@ -36,7 +36,6 @@ readonly REMOTE_REPO="kyoulee/Inception-of-Things.git"
 readonly CERT_FILE="${GIT_ROOT}/.git/gitlab-cert.pem"
 readonly GIT_USER="kyoulee"
 readonly GIT_PASS="password@1234"
-readonly COREDNS_CUSTOM_FILE="./confs/gitlab/coredns-custom.yaml"
 
 log_info "Verifying dependencies (docker, openssl, git)..."
 if ! command -v docker >/dev/null 2>&1; then

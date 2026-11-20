@@ -5,4 +5,4 @@ metadata:
   namespace: kube-system
 data:
   gitlab.override: |
-    rewrite name exact gitlab.localhost host.k3d.internal
+     rewrite name gitlab.localhost gitlab-nginx-ingress-controller.gitlab.svc.cluster.local
